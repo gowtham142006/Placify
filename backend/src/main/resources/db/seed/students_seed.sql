@@ -1,0 +1,34 @@
+INSERT INTO students (
+    age,
+    gender,
+    cgpa,
+    branch,
+    college_tier,
+    internships_count,
+    projects_count,
+    certifications_count,
+    coding_skill_score,
+    communication_skill_score,
+    aptitude_score,
+    logical_reasoning_score,
+    mock_interview_score,
+    backlogs,
+    placement_status
+)
+VALUES (
+    22,
+    'Male',
+    8.20,
+    'CSE',
+    1,
+    2,
+    3,
+    4,
+    85,
+    78,
+    82,
+    80,
+    88,
+    0,
+    TRUE
+);
