@@ -18,4 +18,10 @@ public class PredictionResponse {
     private Double confidence;
 
     private String message;
+
+    /** Probability of placement (0.0–1.0) returned by the ML model. */
+    private Double placementProbability;
+
+    /** Decision threshold used by the ML model. */
+    private Double threshold;
 }
