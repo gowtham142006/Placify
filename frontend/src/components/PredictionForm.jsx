@@ -1,9 +1,37 @@
 import { useState } from "react";
-import { Sparkles } from "lucide-react";
+import { Sparkles, Loader2 } from "lucide-react";
 import FormInput from "./FormInput";
 import FormSelect from "./FormSelect";
 import FormSlider from "./FormSlider";
+import PredictionResult from "./PredictionResult";
 import { predictPlacement } from "../services/predictionService";
+
+/**
+ * Converts form state into the exact JSON payload expected by Spring Boot.
+ * All numeric fields are explicitly cast to numbers.
+ * Empty‑string number fields are converted to null so validation can catch them.
+ */
+function preparePayload(formData) {
+    const toInt = (v) => (v === "" || v === null || v === undefined ? null : Number(v));
+    const toFloat = (v) => (v === "" || v === null || v === undefined ? null : parseFloat(v));
+
+    return {
+        age: toInt(formData.age),
+        gender: formData.gender,
+        cgpa: toFloat(formData.cgpa),
+        branch: formData.branch,
+        collegeTier: toInt(formData.collegeTier),
+        internshipsCount: toInt(formData.internshipsCount),
+        projectsCount: toInt(formData.projectsCount),
+        certificationsCount: toInt(formData.certificationsCount),
+        codingSkillScore: Number(formData.codingSkillScore),
+        communicationSkillScore: Number(formData.communicationSkillScore),
+        aptitudeScore: Number(formData.aptitudeScore),
+        logicalReasoningScore: Number(formData.logicalReasoningScore),
+        mockInterviewScore: Number(formData.mockInterviewScore),
+        backlogs: toInt(formData.backlogs),
+    };
+}
 
 function PredictionForm() {
     const [formData, setFormData] = useState({
@@ -25,6 +53,8 @@ function PredictionForm() {
 
     const [errors, setErrors] = useState({});
     const [predictionResult, setPredictionResult] = useState(null);
+    const [isLoading, setIsLoading] = useState(false);
+    const [apiError, setApiError] = useState(null);
 
     const handleChange = (e) => {
         const { name, value, type } = e.target;
@@ -38,13 +68,18 @@ function PredictionForm() {
         if (errors[name]) {
             setErrors((prev) => ({ ...prev, [name]: "" }));
         }
+
+        // Clear API error when user edits the form
+        if (apiError) {
+            setApiError(null);
+        }
     };
 
     const validate = () => {
         const newErrors = {};
 
         // Required fields & bounds
-        if (!formData.age) {
+        if (!formData.age && formData.age !== 0) {
             newErrors.age = "Age is required";
         } else if (formData.age < 16 || formData.age > 35) {
             newErrors.age = "Age must be between 16 and 35";
@@ -54,7 +89,7 @@ function PredictionForm() {
             newErrors.gender = "Gender is required";
         }
 
-        if (formData.cgpa === "") {
+        if (formData.cgpa === "" || formData.cgpa === null || formData.cgpa === undefined) {
             newErrors.cgpa = "CGPA is required";
         } else if (formData.cgpa < 0 || formData.cgpa > 10) {
             newErrors.cgpa = "CGPA must be between 0 and 10";
@@ -68,6 +103,30 @@ function PredictionForm() {
             newErrors.collegeTier = "College Tier is required";
         }
 
+        if (formData.internshipsCount === "" || formData.internshipsCount === null) {
+            newErrors.internshipsCount = "Internships count is required";
+        } else if (formData.internshipsCount < 0) {
+            newErrors.internshipsCount = "Cannot be negative";
+        }
+
+        if (formData.projectsCount === "" || formData.projectsCount === null) {
+            newErrors.projectsCount = "Projects count is required";
+        } else if (formData.projectsCount < 0) {
+            newErrors.projectsCount = "Cannot be negative";
+        }
+
+        if (formData.certificationsCount === "" || formData.certificationsCount === null) {
+            newErrors.certificationsCount = "Certifications count is required";
+        } else if (formData.certificationsCount < 0) {
+            newErrors.certificationsCount = "Cannot be negative";
+        }
+
+        if (formData.backlogs === "" || formData.backlogs === null) {
+            newErrors.backlogs = "Active backlogs is required";
+        } else if (formData.backlogs < 0) {
+            newErrors.backlogs = "Cannot be negative";
+        }
+
         // Sliders bounds
         if (formData.codingSkillScore < 0 || formData.codingSkillScore > 100) {
             newErrors.codingSkillScore = "Must be between 0 and 100";
@@ -77,21 +136,16 @@ function PredictionForm() {
             newErrors.communicationSkillScore = "Must be between 0 and 100";
         }
 
-        // Number fields cannot be negative
-        if (formData.internshipsCount !== "" && formData.internshipsCount < 0) {
-            newErrors.internshipsCount = "Cannot be negative";
+        if (formData.aptitudeScore < 0 || formData.aptitudeScore > 100) {
+            newErrors.aptitudeScore = "Must be between 0 and 100";
         }
 
-        if (formData.projectsCount !== "" && formData.projectsCount < 0) {
-            newErrors.projectsCount = "Cannot be negative";
+        if (formData.logicalReasoningScore < 0 || formData.logicalReasoningScore > 100) {
+            newErrors.logicalReasoningScore = "Must be between 0 and 100";
         }
 
-        if (formData.certificationsCount !== "" && formData.certificationsCount < 0) {
-            newErrors.certificationsCount = "Cannot be negative";
-        }
-
-        if (formData.backlogs !== "" && formData.backlogs < 0) {
-            newErrors.backlogs = "Cannot be negative";
+        if (formData.mockInterviewScore < 0 || formData.mockInterviewScore > 100) {
+            newErrors.mockInterviewScore = "Must be between 0 and 100";
         }
 
         setErrors(newErrors);
@@ -101,15 +155,30 @@ function PredictionForm() {
     const handleSubmit = async (e) => {
         e.preventDefault();
 
+        // Prevent duplicate submissions
+        if (isLoading) return;
+
         if (!validate()) return;
 
+        setIsLoading(true);
+        setApiError(null);
+        setPredictionResult(null);
+
         try {
-            const result = await predictPlacement(formData);
-            console.log(result);
+            const payload = preparePayload(formData);
+            const result = await predictPlacement(payload);
             setPredictionResult(result);
         } catch (error) {
-            console.error("Prediction failed:", error);
+            setApiError(error.message || "An unexpected error occurred. Please try again.");
+        } finally {
+            setIsLoading(false);
         }
+    };
+
+    const handleReset = () => {
+        setPredictionResult(null);
+        setApiError(null);
+        window.scrollTo({ top: 0, behavior: "smooth" });
     };
 
     return (
@@ -126,7 +195,7 @@ function PredictionForm() {
                     {/* Personal & Academic Details */}
                     <div>
                         <h3 className="text-xl font-bold text-slate-900 mb-6 pb-3 border-b border-slate-100 flex items-center gap-2">
-                            Personal & Academic Details
+                            Personal &amp; Academic Details
                         </h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-8">
                             <FormInput
@@ -134,7 +203,7 @@ function PredictionForm() {
                                 name="age"
                                 label="Age"
                                 type="number"
-                                min="18"
+                                min="16"
                                 value={formData.age}
                                 onChange={handleChange}
                                 error={errors.age}
@@ -208,7 +277,7 @@ function PredictionForm() {
                     {/* Experience & Projects */}
                     <div>
                         <h3 className="text-xl font-bold text-slate-900 mb-6 pb-3 border-b border-slate-100 flex items-center gap-2">
-                            Experience & Projects
+                            Experience &amp; Projects
                         </h3>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-8">
                             <FormInput
@@ -293,37 +362,71 @@ function PredictionForm() {
                         </div>
                     </div>
 
+                    {/* API Error Display */}
+                    {apiError && (
+                        <div className="rounded-2xl border border-red-200 bg-red-50 p-5 flex items-start gap-4">
+                            <div className="flex items-center justify-center w-10 h-10 rounded-full bg-red-100 shrink-0">
+                                <svg
+                                    className="w-5 h-5 text-red-600"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                    strokeWidth={2}
+                                >
+                                    <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"
+                                    />
+                                </svg>
+                            </div>
+                            <div className="flex-grow">
+                                <h4 className="text-sm font-bold text-red-800">
+                                    Prediction Failed
+                                </h4>
+                                <p className="mt-1 text-sm text-red-700">{apiError}</p>
+                                <button
+                                    type="button"
+                                    onClick={() => setApiError(null)}
+                                    className="mt-3 text-sm font-semibold text-red-600 hover:text-red-800 underline underline-offset-2 transition-colors"
+                                >
+                                    Dismiss
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Submit Button */}
                     <div className="pt-8">
                         <button
                             type="submit"
-                            className="w-full flex items-center justify-center gap-3 px-8 py-4 rounded-xl bg-gradient-to-r from-primary-600 to-accent-500 text-white font-bold text-lg shadow-lg shadow-primary-500/30 hover:shadow-xl hover:shadow-primary-500/40 hover:-translate-y-1 transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-primary-500/30"
+                            disabled={isLoading}
+                            className={`w-full flex items-center justify-center gap-3 px-8 py-4 rounded-xl bg-gradient-to-r from-primary-600 to-accent-500 text-white font-bold text-lg shadow-lg shadow-primary-500/30 transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-primary-500/30 ${
+                                isLoading
+                                    ? "opacity-70 cursor-not-allowed"
+                                    : "hover:shadow-xl hover:shadow-primary-500/40 hover:-translate-y-1"
+                            }`}
                         >
-                            <Sparkles className="w-6 h-6 animate-pulse" />
-                            Predict Placement
+                            {isLoading ? (
+                                <>
+                                    <Loader2 className="w-6 h-6 animate-spin" />
+                                    Predicting...
+                                </>
+                            ) : (
+                                <>
+                                    <Sparkles className="w-6 h-6 animate-pulse" />
+                                    Predict Placement
+                                </>
+                            )}
                         </button>
                     </div>
-                    {predictionResult && (
-                        <div className="mt-8 rounded-2xl border border-slate-200 bg-slate-50 p-6 text-center">
-                            <h3 className="text-2xl font-bold text-slate-900">
-                                {predictionResult.prediction
-                                    ? "Likely to be Placed 🎉"
-                                    : "Unlikely to be Placed"}
-                            </h3>
 
-                            <p className="mt-3 text-lg text-slate-600">
-                                Confidence: {predictionResult.confidence}%
-                            </p>
-
-                            <p className="mt-2 text-slate-600">
-                                {predictionResult.message}
-                            </p>
-                        </div>
-                    )}
+                    {/* Prediction Result */}
+                    <PredictionResult result={predictionResult} onReset={handleReset} />
                 </form>
             </div>
         </div>
     );
 }
 
-export default PredictionForm
+export default PredictionForm;
