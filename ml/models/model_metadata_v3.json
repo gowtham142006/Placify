@@ -1,0 +1,89 @@
+{
+  "model_version": "v3",
+  "dataset_filename": "student_placement_prediction_dataset_v3.csv",
+  "model_name": "LogisticRegression",
+  "model_hyperparameters": {
+    "max_iter": 1000,
+    "random_state": 42
+  },
+  "preprocessing": {
+    "numeric_features": [
+      "age",
+      "cgpa",
+      "college_tier",
+      "internships_count",
+      "projects_count",
+      "certifications_count",
+      "coding_skill_score",
+      "communication_skill_score",
+      "aptitude_score",
+      "logical_reasoning_score",
+      "mock_interview_score",
+      "backlogs"
+    ],
+    "numeric_pipeline": [
+      "SimpleImputer(strategy='median')",
+      "StandardScaler()"
+    ],
+    "categorical_features": [
+      "gender",
+      "branch"
+    ],
+    "categorical_pipeline": [
+      "SimpleImputer(strategy='most_frequent')",
+      "OneHotEncoder(handle_unknown='ignore')"
+    ]
+  },
+  "feature_names_in_order": [
+    "age",
+    "gender",
+    "cgpa",
+    "branch",
+    "college_tier",
+    "internships_count",
+    "projects_count",
+    "certifications_count",
+    "coding_skill_score",
+    "communication_skill_score",
+    "aptitude_score",
+    "logical_reasoning_score",
+    "mock_interview_score",
+    "backlogs"
+  ],
+  "positive_class_label": "Placed",
+  "target_column": "placement_status",
+  "selected_threshold": 0.55,
+  "threshold_selection_method": "Maximized Balanced Accuracy on validation set (train 80/20 split, random_state=42). Test set was NOT used for threshold selection.",
+  "train_test_split": {
+    "test_size": 0.2,
+    "random_state": 42,
+    "stratify": "y",
+    "train_samples": 8000,
+    "test_samples": 2000
+  },
+  "validation_metrics_at_threshold_0.55": {
+    "precision": 0.7573,
+    "recall": 0.7442,
+    "f1": 0.7507,
+    "macro_f1": 0.7303,
+    "balanced_accuracy": 0.7307
+  },
+  "test_metrics_at_default_threshold_0.50": {
+    "accuracy": 0.7485,
+    "precision": 0.7594,
+    "recall": 0.7853,
+    "f1": 0.7721,
+    "macro_f1": 0.7458,
+    "balanced_accuracy": 0.7451,
+    "roc_auc": 0.8214
+  },
+  "test_metrics_at_selected_threshold_0.55": {
+    "accuracy": 0.743,
+    "precision": 0.7775,
+    "recall": 0.7373,
+    "f1": 0.7569,
+    "macro_f1": 0.7422,
+    "balanced_accuracy": 0.7435,
+    "roc_auc": 0.8214
+  }
+}
